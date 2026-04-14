@@ -1,9 +1,9 @@
-import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, Building2, Megaphone, LayoutDashboard, LogOut, Menu } from "lucide-react";
-import { useState } from "react";
+import { ClipboardList, Building2, Megaphone, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const sidebarItems = [
   { title: "대시보드", url: "/dashboard", icon: LayoutDashboard },
@@ -15,7 +15,13 @@ const sidebarItems = [
 const AdminLayout = () => {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar on route change (mobile)
+  const location = window.location.pathname;
+  useEffect(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, [location]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -27,21 +33,37 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="min-h-screen flex w-full relative">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`${sidebarOpen ? "w-60" : "w-0 overflow-hidden"} transition-all duration-300 flex flex-col text-white shrink-0`}
+        className={`
+          fixed md:static z-40 h-full md:h-auto
+          ${sidebarOpen ? "w-60 translate-x-0" : "w-0 -translate-x-full md:translate-x-0 md:w-0"}
+          md:${sidebarOpen ? "w-60" : "w-0"}
+          transition-all duration-300 flex flex-col text-white shrink-0 overflow-hidden
+        `}
         style={{ backgroundColor: "#1E3A5F" }}
       >
-        <div className="h-16 flex items-center justify-center border-b border-white/10 font-bold text-lg tracking-wide">
-          입주ON 관리자
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 font-bold text-lg tracking-wide whitespace-nowrap">
+          <span>입주ON 관리자</span>
+          <Button variant="ghost" size="icon" className="md:hidden text-white hover:bg-white/10" onClick={() => setSidebarOpen(false)}>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
         <nav className="flex-1 py-4 space-y-1 px-3">
           {sidebarItems.map((item) => (
             <NavLink
               key={item.url}
               to={item.url}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/70 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/70 hover:bg-white/10 transition-colors whitespace-nowrap"
               activeClassName="bg-white/15 text-white font-medium"
             >
               <item.icon className="w-5 h-5 shrink-0" />
@@ -53,19 +75,19 @@ const AdminLayout = () => {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="h-14 md:h-16 border-b bg-white flex items-center justify-between px-3 md:px-6 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu className="w-5 h-5" />
             </Button>
-            <span className="font-semibold text-lg">입주ON 관리자</span>
+            <span className="font-semibold text-base md:text-lg">입주ON 관리자</span>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleLogout} className="gap-1 md:gap-2 text-xs md:text-sm">
             <LogOut className="w-4 h-4" />
-            로그아웃
+            <span className="hidden sm:inline">로그아웃</span>
           </Button>
         </header>
-        <main className="flex-1 overflow-auto bg-muted/30 p-6">
+        <main className="flex-1 overflow-auto bg-muted/30 p-3 md:p-6">
           <Outlet />
         </main>
       </div>
