@@ -90,21 +90,21 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">대시보드</h1>
+    <div className="space-y-4 md:space-y-6">
+      <h1 className="text-xl md:text-2xl font-bold">대시보드</h1>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
         {stats.map((s) => (
           <Card key={s.label} className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.bg }}>
-                <s.icon className="w-5 h-5 text-white" />
+            <CardHeader className="flex flex-row items-center justify-between pb-1 md:pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.bg }}>
+                <s.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{s.value}</p>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <p className="text-2xl md:text-3xl font-bold">{s.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -112,51 +112,53 @@ const Dashboard = () => {
 
       {/* 최근 상담신청 */}
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">최근 상담신청</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => navigate("/consultation")}>
+        <CardHeader className="flex flex-row items-center justify-between p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">최근 상담신청</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => navigate("/consultation")} className="text-xs md:text-sm">
             전체보기
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 md:p-6 md:pt-0">
           {recentRequests.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">상담신청 내역이 없습니다.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>신청자명</TableHead>
-                  <TableHead>업체명</TableHead>
-                  <TableHead>업체유형</TableHead>
-                  <TableHead>희망시간</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>신청일시</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentRequests.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.resident_name}</TableCell>
-                    <TableCell>{r.vendor_name}</TableCell>
-                    <TableCell>{r.vendor_type}</TableCell>
-                    <TableCell>{r.preferred_time}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={r.status === "처리완료" ? "default" : "secondary"}
-                        className={
-                          r.status === "처리완료"
-                            ? "bg-green-100 text-green-700 hover:bg-green-100"
-                            : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                        }
-                      >
-                        {r.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{formatDate(r.created_at)}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs md:text-sm">신청자명</TableHead>
+                    <TableHead className="text-xs md:text-sm">업체명</TableHead>
+                    <TableHead className="text-xs md:text-sm hidden sm:table-cell">업체유형</TableHead>
+                    <TableHead className="text-xs md:text-sm hidden md:table-cell">희망시간</TableHead>
+                    <TableHead className="text-xs md:text-sm">상태</TableHead>
+                    <TableHead className="text-xs md:text-sm hidden sm:table-cell">신청일시</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentRequests.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium text-xs md:text-sm">{r.resident_name}</TableCell>
+                      <TableCell className="text-xs md:text-sm">{r.vendor_name}</TableCell>
+                      <TableCell className="text-xs md:text-sm hidden sm:table-cell">{r.vendor_type}</TableCell>
+                      <TableCell className="text-xs md:text-sm hidden md:table-cell">{r.preferred_time}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={r.status === "처리완료" ? "default" : "secondary"}
+                          className={`text-xs ${
+                            r.status === "처리완료"
+                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+                              : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                          }`}
+                        >
+                          {r.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs hidden sm:table-cell">{formatDate(r.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
