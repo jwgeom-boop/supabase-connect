@@ -179,45 +179,47 @@ export default function ConsultationDashboard() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">상담신청 관리</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <h1 className="text-xl md:text-2xl font-bold">상담신청 관리</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExcelDownload}>
-            <Download className="mr-2 h-4 w-4" />
-            엑셀 다운로드
+          <Button variant="outline" size="sm" onClick={handleExcelDownload} className="text-xs md:text-sm">
+            <Download className="mr-1 md:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">엑셀 다운로드</span>
+            <span className="sm:hidden">엑셀</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            새로고침
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="text-xs md:text-sm">
+            <RefreshCw className={`mr-1 md:mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">새로고침</span>
           </Button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2 md:gap-4">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <TabsList>
-            <TabsTrigger value="all">전체</TabsTrigger>
-            <TabsTrigger value="대기중">대기중</TabsTrigger>
-            <TabsTrigger value="처리완료">처리완료</TabsTrigger>
+          <TabsList className="h-8 md:h-9">
+            <TabsTrigger value="all" className="text-xs md:text-sm">전체</TabsTrigger>
+            <TabsTrigger value="대기중" className="text-xs md:text-sm">대기중</TabsTrigger>
+            <TabsTrigger value="처리완료" className="text-xs md:text-sm">처리완료</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2">
           {(["all", "today", "week", "month"] as DateRange[]).map((range) => (
             <Button
               key={range}
               variant={dateRange === range ? "default" : "outline"}
               size="sm"
               onClick={() => setDateRange(range)}
+              className="text-xs md:text-sm px-2 md:px-3"
             >
-              {{ all: "전체기간", today: "오늘", week: "이번주", month: "이번달" }[range]}
+              {{ all: "전체", today: "오늘", week: "이번주", month: "이번달" }[range]}
             </Button>
           ))}
         </div>
 
         <Select value={vendorTypeFilter} onValueChange={setVendorTypeFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-28 md:w-40 h-8 md:h-9 text-xs md:text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -227,11 +229,11 @@ export default function ConsultationDashboard() {
           </SelectContent>
         </Select>
 
-        <span className="ml-auto text-sm text-muted-foreground">총 {filtered.length}건</span>
+        <span className="ml-auto text-xs md:text-sm text-muted-foreground">총 {filtered.length}건</span>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
