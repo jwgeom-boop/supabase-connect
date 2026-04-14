@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const login = (id: string, password: string) => {
-    if (id === "admin" && password === "admin1234") {
+    if (id === "아이디123" && password === "1234") {
       setIsAuthenticated(true);
       sessionStorage.setItem("admin_auth", "true");
       return true;
