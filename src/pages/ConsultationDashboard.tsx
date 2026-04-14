@@ -11,29 +11,38 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 type ConsultationRequest = {
   id: string;
-  name: string;
-  phone: string;
-  type: string;
+  resident_name: string;
+  resident_phone: string;
+  vendor_name: string;
+  vendor_type: string;
+  complex_name: string;
   preferred_time: string;
   status: string;
   memo: string | null;
   created_at: string;
 };
 
-type StatusFilter = "all" | "pending" | "completed";
+type StatusFilter = "all" | "대기중" | "처리완료";
 type DateRange = "all" | "today" | "week" | "month";
+
+const VENDOR_TYPES = ["전체", "인테리어", "이사", "인터넷·TV", "청소", "가구", "가전", "은행"];
 
 export default function ConsultationDashboard() {
   const [requests, setRequests] = useState<ConsultationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [vendorTypeFilter, setVendorTypeFilter] = useState("전체");
   const [selected, setSelected] = useState<ConsultationRequest | null>(null);
   const [memo, setMemo] = useState("");
   const [updating, setUpdating] = useState(false);
@@ -62,15 +71,11 @@ export default function ConsultationDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "consultation_requests" },
-        () => {
-          fetchData();
-        }
+        () => fetchData()
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const filtered = useMemo(() => {
@@ -78,6 +83,10 @@ export default function ConsultationDashboard() {
 
     if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
+    }
+
+    if (vendorTypeFilter !== "전체") {
+      result = result.filter((r) => r.vendor_type === vendorTypeFilter);
     }
 
     if (dateRange !== "all") {
@@ -96,12 +105,12 @@ export default function ConsultationDashboard() {
     }
 
     return result;
-  }, [requests, statusFilter, dateRange]);
+  }, [requests, statusFilter, dateRange, vendorTypeFilter]);
 
   const handleStatusChange = async () => {
     if (!selected) return;
     setUpdating(true);
-    const newStatus = selected.status === "pending" ? "completed" : "pending";
+    const newStatus = selected.status === "대기중" ? "처리완료" : "대기중";
     const { error } = await supabase
       .from("consultation_requests")
       .update({ status: newStatus, memo })
@@ -144,12 +153,39 @@ export default function ConsultationDashboard() {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
+  const handleExcelDownload = () => {
+    const rows = filtered.map((r, idx) => ({
+      "번호": filtered.length - idx,
+      "신청자명": r.resident_name,
+      "연락처": r.resident_phone,
+      "업체명": r.vendor_name,
+      "업체유형": r.vendor_type,
+      "단지명": r.complex_name,
+      "희망시간": r.preferred_time,
+      "상태": r.status,
+      "메모": r.memo ?? "",
+      "신청일시": formatDate(r.created_at),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "상담신청");
+
+    const today = new Date();
+    const fileName = `상담신청_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="border-b bg-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold text-foreground">상담신청 관리</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">상담신청 관리</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExcelDownload}>
+            <Download className="mr-2 h-4 w-4" />
+            엑셀 다운로드
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             새로고침
@@ -158,93 +194,98 @@ export default function ConsultationDashboard() {
       </div>
 
       {/* Filters */}
-      <div className="mx-auto max-w-7xl px-6 py-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <TabsList>
-              <TabsTrigger value="all">전체</TabsTrigger>
-              <TabsTrigger value="pending">대기중</TabsTrigger>
-              <TabsTrigger value="completed">처리완료</TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <div className="flex flex-wrap items-center gap-4">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList>
+            <TabsTrigger value="all">전체</TabsTrigger>
+            <TabsTrigger value="대기중">대기중</TabsTrigger>
+            <TabsTrigger value="처리완료">처리완료</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-          <div className="flex gap-2">
-            {(["all", "today", "week", "month"] as DateRange[]).map((range) => (
-              <Button
-                key={range}
-                variant={dateRange === range ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDateRange(range)}
-              >
-                {{ all: "전체기간", today: "오늘", week: "이번주", month: "이번달" }[range]}
-              </Button>
-            ))}
-          </div>
-
-          <span className="ml-auto text-sm text-muted-foreground">
-            총 {filtered.length}건
-          </span>
+        <div className="flex gap-2">
+          {(["all", "today", "week", "month"] as DateRange[]).map((range) => (
+            <Button
+              key={range}
+              variant={dateRange === range ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDateRange(range)}
+            >
+              {{ all: "전체기간", today: "오늘", week: "이번주", month: "이번달" }[range]}
+            </Button>
+          ))}
         </div>
+
+        <Select value={vendorTypeFilter} onValueChange={setVendorTypeFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {VENDOR_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <span className="ml-auto text-sm text-muted-foreground">총 {filtered.length}건</span>
       </div>
 
       {/* Table */}
-      <div className="mx-auto max-w-7xl px-6 pb-8">
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">번호</TableHead>
+              <TableHead>신청자명</TableHead>
+              <TableHead>연락처</TableHead>
+              <TableHead>업체명</TableHead>
+              <TableHead>업체유형</TableHead>
+              <TableHead>단지명</TableHead>
+              <TableHead>희망시간</TableHead>
+              <TableHead>신청일시</TableHead>
+              <TableHead className="w-24">상태</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
               <TableRow>
-                <TableHead className="w-16">번호</TableHead>
-                <TableHead>신청자명</TableHead>
-                <TableHead>연락처</TableHead>
-                <TableHead>신청유형</TableHead>
-                <TableHead>희망상담시간</TableHead>
-                <TableHead>신청일시</TableHead>
-                <TableHead className="w-24">상태</TableHead>
+                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">로딩 중...</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                    로딩 중...
+            ) : filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">데이터가 없습니다.</TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((req, idx) => (
+                <TableRow
+                  key={req.id}
+                  className="cursor-pointer transition-colors hover:bg-blue-50"
+                  onClick={() => openDetail(req)}
+                >
+                  <TableCell className="font-medium">{filtered.length - idx}</TableCell>
+                  <TableCell>{req.resident_name}</TableCell>
+                  <TableCell>{req.resident_phone}</TableCell>
+                  <TableCell>{req.vendor_name}</TableCell>
+                  <TableCell>{req.vendor_type}</TableCell>
+                  <TableCell>{req.complex_name}</TableCell>
+                  <TableCell>{req.preferred_time}</TableCell>
+                  <TableCell>{formatDate(req.created_at)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      className={
+                        req.status === "처리완료"
+                          ? "border-transparent bg-green-100 text-green-800 hover:bg-green-100"
+                          : "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
                   </TableCell>
                 </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                    데이터가 없습니다.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((req, idx) => (
-                  <TableRow
-                    key={req.id}
-                    className="cursor-pointer transition-colors hover:bg-blue-50"
-                    onClick={() => openDetail(req)}
-                  >
-                    <TableCell className="font-medium">{filtered.length - idx}</TableCell>
-                    <TableCell>{req.name}</TableCell>
-                    <TableCell>{req.phone}</TableCell>
-                    <TableCell>{req.type}</TableCell>
-                    <TableCell>{req.preferred_time}</TableCell>
-                    <TableCell>{formatDate(req.created_at)}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          req.status === "completed"
-                            ? "border-transparent bg-green-100 text-green-800 hover:bg-green-100"
-                            : "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                        }
-                      >
-                        {req.status === "completed" ? "처리완료" : "대기중"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Detail Modal */}
@@ -259,18 +300,26 @@ export default function ConsultationDashboard() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">신청자명</span>
-                  <p className="font-medium">{selected.name}</p>
+                  <p className="font-medium">{selected.resident_name}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">연락처</span>
-                  <p className="font-medium">{selected.phone}</p>
+                  <p className="font-medium">{selected.resident_phone}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">신청유형</span>
-                  <p className="font-medium">{selected.type}</p>
+                  <span className="text-muted-foreground">업체명</span>
+                  <p className="font-medium">{selected.vendor_name}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">희망상담시간</span>
+                  <span className="text-muted-foreground">업체유형</span>
+                  <p className="font-medium">{selected.vendor_type}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">단지명</span>
+                  <p className="font-medium">{selected.complex_name}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">희망시간</span>
                   <p className="font-medium">{selected.preferred_time}</p>
                 </div>
                 <div>
@@ -282,12 +331,12 @@ export default function ConsultationDashboard() {
                   <p>
                     <Badge
                       className={
-                        selected.status === "completed"
+                        selected.status === "처리완료"
                           ? "border-transparent bg-green-100 text-green-800 hover:bg-green-100"
                           : "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
                       }
                     >
-                      {selected.status === "completed" ? "처리완료" : "대기중"}
+                      {selected.status}
                     </Badge>
                   </p>
                 </div>
@@ -309,7 +358,7 @@ export default function ConsultationDashboard() {
               <div className="flex justify-end gap-2 border-t pt-4">
                 <Button variant="outline" onClick={() => setSelected(null)}>닫기</Button>
                 <Button onClick={handleStatusChange} disabled={updating}>
-                  {selected.status === "pending" ? "처리완료로 변경" : "대기중으로 변경"}
+                  {selected.status === "대기중" ? "처리완료로 변경" : "대기중으로 변경"}
                 </Button>
               </div>
             </div>
