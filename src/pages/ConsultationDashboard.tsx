@@ -223,6 +223,24 @@ export default function ConsultationDashboard() {
         <div className="h-[2px]" style={{ backgroundColor: "#1E3A5F" }} />
       </div>
 
+      {/* Vendor Name Filter */}
+      {vendorTab !== "전체" && vendorNames.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">업체명:</span>
+          <Select value={vendorNameFilter} onValueChange={setVendorNameFilter}>
+            <SelectTrigger className="w-48 h-8 text-sm">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              {vendorNames.map((name) => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
