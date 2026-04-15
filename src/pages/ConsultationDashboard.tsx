@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import BankDetailModal from "@/components/BankDetailModal";
 import { RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -326,12 +327,19 @@ export default function ConsultationDashboard() {
 
       {/* Detail Modal */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className={selected?.vendor_type === "은행" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
           <DialogHeader>
             <DialogTitle>상담신청 상세</DialogTitle>
             <DialogDescription>신청 내역을 확인하고 상태를 변경할 수 있습니다.</DialogDescription>
           </DialogHeader>
-          {selected && (
+          {selected && selected.vendor_type === "은행" ? (
+            <BankDetailModal
+              selected={selected}
+              onClose={() => setSelected(null)}
+              onRefresh={fetchData}
+              formatDate={formatDate}
+            />
+          ) : selected && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">신청자명</span><p className="font-medium">{selected.resident_name}</p></div>
