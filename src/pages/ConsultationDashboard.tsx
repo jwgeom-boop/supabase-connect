@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import BankDetailModal from "@/components/BankDetailModal";
 import { RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
