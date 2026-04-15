@@ -82,11 +82,27 @@ export default function ConsultationDashboard() {
     return counts;
   }, [requests]);
 
+  // Dynamic vendor names for the selected tab
+  const vendorNames = useMemo(() => {
+    if (vendorTab === "전체") return [];
+    const names = new Set<string>();
+    requests.forEach((r) => { if (r.vendor_type === vendorTab) names.add(r.vendor_name); });
+    return Array.from(names).sort();
+  }, [requests, vendorTab]);
+
+  // Reset vendor name filter when tab changes
+  useEffect(() => {
+    setVendorNameFilter("all");
+  }, [vendorTab]);
+
   const filtered = useMemo(() => {
     let result = requests;
 
     if (vendorTab !== "전체") {
       result = result.filter((r) => r.vendor_type === vendorTab);
+    }
+    if (vendorNameFilter !== "all") {
+      result = result.filter((r) => r.vendor_name === vendorNameFilter);
     }
     if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
@@ -106,7 +122,7 @@ export default function ConsultationDashboard() {
       result = result.filter((r) => new Date(r.created_at) >= start);
     }
     return result;
-  }, [requests, vendorTab, statusFilter, dateRange]);
+  }, [requests, vendorTab, vendorNameFilter, statusFilter, dateRange]);
 
   const handleStatusChange = async () => {
     if (!selected) return;
