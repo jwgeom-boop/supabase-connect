@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -84,17 +84,12 @@ export default function BankDetailModal({ selected, onClose, onRefresh, formatDa
       notes: notes || null,
     };
 
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update(updateData)
-      .eq("id", selected.id);
-
-    if (error) {
-      toast.error("저장에 실패했습니다.");
-      console.error(error);
-    } else {
+    try {
+      await api.updateConsultation(selected.id, updateData);
       toast.success("저장되었습니다.");
       onRefresh();
+    } catch {
+      toast.error("저장에 실패했습니다.");
     }
     setUpdating(false);
   };
@@ -102,16 +97,13 @@ export default function BankDetailModal({ selected, onClose, onRefresh, formatDa
   const handleStatusChange = async () => {
     setUpdating(true);
     const newStatus = selected.status === "대기중" ? "처리완료" : "대기중";
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({ status: newStatus })
-      .eq("id", selected.id);
-    if (error) {
-      toast.error("상태 변경에 실패했습니다.");
-    } else {
+    try {
+      await api.updateConsultation(selected.id, { status: newStatus });
       toast.success("상태가 변경되었습니다.");
       onClose();
       onRefresh();
+    } catch {
+      toast.error("상태 변경에 실패했습니다.");
     }
     setUpdating(false);
   };

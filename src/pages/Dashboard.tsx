@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import {
   Table, TableHeader, TableBody, TableRow,
   TableHead, TableCell,
 } from "@/components/ui/table";
-import { ClipboardList, Building2, Clock, CheckCircle } from "lucide-react";
+import { ClipboardList, Clock, CheckCircle } from "lucide-react";
 
 type RecentRequest = {
   id: string;
@@ -25,63 +25,40 @@ const Dashboard = () => {
   const [todayCount, setTodayCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
-  const [vendorCount, setVendorCount] = useState(0);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
 
   const fetchData = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    try {
+      const data = await api.getConsultations();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const [todayRes, pendingRes, completedRes, vendorRes, recentRes] = await Promise.all([
-      supabase
-        .from("consultation_requests")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", today.toISOString()),
-      supabase
-        .from("consultation_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "대기중"),
-      supabase
-        .from("consultation_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "처리완료"),
-      supabase
-        .from("vendor_accounts")
-        .select("id", { count: "exact", head: true }),
-      supabase
-        .from("consultation_requests")
-        .select("id, resident_name, vendor_name, vendor_type, preferred_time, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+      const todayItems = data.filter((r: RecentRequest) => new Date(r.created_at) >= today);
+      const pending = data.filter((r: RecentRequest) => r.status === "대기중");
+      const completed = data.filter((r: RecentRequest) => r.status === "처리완료");
+      const recent = [...data].sort((a: RecentRequest, b: RecentRequest) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ).slice(0, 5);
 
-    setTodayCount(todayRes.count ?? 0);
-    setPendingCount(pendingRes.count ?? 0);
-    setCompletedCount(completedRes.count ?? 0);
-    setVendorCount(vendorRes.count ?? 0);
-    setRecentRequests(recentRes.data ?? []);
+      setTodayCount(todayItems.length);
+      setPendingCount(pending.length);
+      setCompletedCount(completed.length);
+      setRecentRequests(recent);
+    } catch {
+      console.error("데이터 로드 실패");
+    }
   };
 
   useEffect(() => {
     fetchData();
-
-    const channel = supabase
-      .channel("dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "consultation_requests" }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const stats = [
     { label: "오늘 상담신청", value: todayCount, icon: ClipboardList, bg: "hsl(213, 50%, 24%)" },
     { label: "대기중 상담", value: pendingCount, icon: Clock, bg: "hsl(40, 80%, 50%)" },
     { label: "처리완료 상담", value: completedCount, icon: CheckCircle, bg: "hsl(150, 50%, 35%)" },
-    { label: "전체 업체 수", value: vendorCount, icon: Building2, bg: "hsl(260, 50%, 45%)" },
   ];
 
   const formatDate = (d: string) => {
