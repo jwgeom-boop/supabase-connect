@@ -11,9 +11,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -35,14 +32,14 @@ type ConsultationRequest = {
 type StatusFilter = "all" | "대기중" | "처리완료";
 type DateRange = "all" | "today" | "week" | "month";
 
-const VENDOR_TYPES = ["전체", "인테리어", "이사", "인터넷·TV", "청소", "가구", "가전", "은행"];
+const VENDOR_TABS = ["전체", "은행", "인테리어", "이사", "인터넷·TV", "청소", "가구", "가전"];
 
 export default function ConsultationDashboard() {
   const [requests, setRequests] = useState<ConsultationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [vendorTypeFilter, setVendorTypeFilter] = useState("전체");
+  const [vendorTab, setVendorTab] = useState("전체");
   const [selected, setSelected] = useState<ConsultationRequest | null>(null);
   const [memo, setMemo] = useState("");
   const [updating, setUpdating] = useState(false);
@@ -65,30 +62,30 @@ export default function ConsultationDashboard() {
 
   useEffect(() => {
     fetchData();
-
     const channel = supabase
       .channel("consultation_requests_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "consultation_requests" },
-        () => fetchData()
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "consultation_requests" }, () => fetchData())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Count per vendor type (unaffected by filters)
+  const vendorCounts = useMemo(() => {
+    const counts: Record<string, number> = { "전체": requests.length };
+    VENDOR_TABS.forEach((t) => { if (t !== "전체") counts[t] = 0; });
+    requests.forEach((r) => { if (counts[r.vendor_type] !== undefined) counts[r.vendor_type]++; });
+    return counts;
+  }, [requests]);
 
   const filtered = useMemo(() => {
     let result = requests;
 
+    if (vendorTab !== "전체") {
+      result = result.filter((r) => r.vendor_type === vendorTab);
+    }
     if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
     }
-
-    if (vendorTypeFilter !== "전체") {
-      result = result.filter((r) => r.vendor_type === vendorTypeFilter);
-    }
-
     if (dateRange !== "all") {
       const now = new Date();
       let start: Date;
@@ -103,9 +100,8 @@ export default function ConsultationDashboard() {
       }
       result = result.filter((r) => new Date(r.created_at) >= start);
     }
-
     return result;
-  }, [requests, statusFilter, dateRange, vendorTypeFilter]);
+  }, [requests, vendorTab, statusFilter, dateRange]);
 
   const handleStatusChange = async () => {
     if (!selected) return;
@@ -115,14 +111,8 @@ export default function ConsultationDashboard() {
       .from("consultation_requests")
       .update({ status: newStatus, memo })
       .eq("id", selected.id);
-
-    if (error) {
-      toast.error("상태 변경에 실패했습니다.");
-    } else {
-      toast.success("상태가 변경되었습니다.");
-      setSelected(null);
-      fetchData();
-    }
+    if (error) { toast.error("상태 변경에 실패했습니다."); }
+    else { toast.success("상태가 변경되었습니다."); setSelected(null); fetchData(); }
     setUpdating(false);
   };
 
@@ -133,19 +123,9 @@ export default function ConsultationDashboard() {
       .from("consultation_requests")
       .update({ memo })
       .eq("id", selected.id);
-
-    if (error) {
-      toast.error("메모 저장에 실패했습니다.");
-    } else {
-      toast.success("메모가 저장되었습니다.");
-      fetchData();
-    }
+    if (error) { toast.error("메모 저장에 실패했습니다."); }
+    else { toast.success("메모가 저장되었습니다."); fetchData(); }
     setUpdating(false);
-  };
-
-  const openDetail = (req: ConsultationRequest) => {
-    setSelected(req);
-    setMemo(req.memo ?? "");
   };
 
   const formatDate = (d: string) => {
@@ -166,11 +146,9 @@ export default function ConsultationDashboard() {
       "메모": r.memo ?? "",
       "신청일시": formatDate(r.created_at),
     }));
-
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "상담신청");
-
     const today = new Date();
     const fileName = `상담신청_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}.xlsx`;
     XLSX.writeFile(wb, fileName);
@@ -192,6 +170,36 @@ export default function ConsultationDashboard() {
             <span className="hidden sm:inline">새로고침</span>
           </Button>
         </div>
+      </div>
+
+      {/* Vendor Type Tabs */}
+      <div className="overflow-x-auto -mx-2 px-2">
+        <div className="flex gap-1 min-w-max">
+          {VENDOR_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setVendorTab(tab)}
+              className={`px-3 py-2 rounded-t-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${
+                vendorTab === tab
+                  ? "text-white"
+                  : "text-muted-foreground bg-muted hover:bg-muted/80"
+              }`}
+              style={vendorTab === tab ? { backgroundColor: "#1E3A5F" } : undefined}
+            >
+              {tab}
+              <span
+                className={`ml-1 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] md:text-xs font-semibold ${
+                  vendorTab === tab
+                    ? "bg-white/20 text-white"
+                    : "bg-background text-muted-foreground"
+                }`}
+              >
+                {vendorCounts[tab] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="h-[2px]" style={{ backgroundColor: "#1E3A5F" }} />
       </div>
 
       {/* Filters */}
@@ -218,17 +226,6 @@ export default function ConsultationDashboard() {
           ))}
         </div>
 
-        <Select value={vendorTypeFilter} onValueChange={setVendorTypeFilter}>
-          <SelectTrigger className="w-28 md:w-40 h-8 md:h-9 text-xs md:text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {VENDOR_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <span className="ml-auto text-xs md:text-sm text-muted-foreground">총 {filtered.length}건</span>
       </div>
 
@@ -241,9 +238,8 @@ export default function ConsultationDashboard() {
               <TableHead>신청자명</TableHead>
               <TableHead>연락처</TableHead>
               <TableHead>업체명</TableHead>
-              <TableHead>업체유형</TableHead>
-              <TableHead>단지명</TableHead>
-              <TableHead>희망시간</TableHead>
+              <TableHead className="hidden sm:table-cell">단지명</TableHead>
+              <TableHead className="hidden sm:table-cell">희망시간</TableHead>
               <TableHead>신청일시</TableHead>
               <TableHead className="w-24">상태</TableHead>
             </TableRow>
@@ -251,26 +247,25 @@ export default function ConsultationDashboard() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">로딩 중...</TableCell>
+                <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">로딩 중...</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">데이터가 없습니다.</TableCell>
+                <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">데이터가 없습니다.</TableCell>
               </TableRow>
             ) : (
               filtered.map((req, idx) => (
                 <TableRow
                   key={req.id}
                   className="cursor-pointer transition-colors hover:bg-blue-50"
-                  onClick={() => openDetail(req)}
+                  onClick={() => { setSelected(req); setMemo(req.memo ?? ""); }}
                 >
                   <TableCell className="font-medium">{filtered.length - idx}</TableCell>
                   <TableCell>{req.resident_name}</TableCell>
                   <TableCell>{req.resident_phone}</TableCell>
                   <TableCell>{req.vendor_name}</TableCell>
-                  <TableCell>{req.vendor_type}</TableCell>
-                  <TableCell>{req.complex_name}</TableCell>
-                  <TableCell>{req.preferred_time}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{req.complex_name}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{req.preferred_time}</TableCell>
                   <TableCell>{formatDate(req.created_at)}</TableCell>
                   <TableCell>
                     <Badge
@@ -300,63 +295,22 @@ export default function ConsultationDashboard() {
           {selected && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">신청자명</span>
-                  <p className="font-medium">{selected.resident_name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">연락처</span>
-                  <p className="font-medium">{selected.resident_phone}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">업체명</span>
-                  <p className="font-medium">{selected.vendor_name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">업체유형</span>
-                  <p className="font-medium">{selected.vendor_type}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">단지명</span>
-                  <p className="font-medium">{selected.complex_name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">희망시간</span>
-                  <p className="font-medium">{selected.preferred_time}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">신청일시</span>
-                  <p className="font-medium">{formatDate(selected.created_at)}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">상태</span>
-                  <p>
-                    <Badge
-                      className={
-                        selected.status === "처리완료"
-                          ? "border-transparent bg-green-100 text-green-800 hover:bg-green-100"
-                          : "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                      }
-                    >
-                      {selected.status}
-                    </Badge>
-                  </p>
-                </div>
+                <div><span className="text-muted-foreground">신청자명</span><p className="font-medium">{selected.resident_name}</p></div>
+                <div><span className="text-muted-foreground">연락처</span><p className="font-medium">{selected.resident_phone}</p></div>
+                <div><span className="text-muted-foreground">업체명</span><p className="font-medium">{selected.vendor_name}</p></div>
+                <div><span className="text-muted-foreground">업체유형</span><p className="font-medium">{selected.vendor_type}</p></div>
+                <div><span className="text-muted-foreground">단지명</span><p className="font-medium">{selected.complex_name}</p></div>
+                <div><span className="text-muted-foreground">희망시간</span><p className="font-medium">{selected.preferred_time}</p></div>
+                <div><span className="text-muted-foreground">신청일시</span><p className="font-medium">{formatDate(selected.created_at)}</p></div>
+                <div><span className="text-muted-foreground">상태</span><p>
+                  <Badge className={selected.status === "처리완료" ? "border-transparent bg-green-100 text-green-800 hover:bg-green-100" : "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100"}>{selected.status}</Badge>
+                </p></div>
               </div>
-
               <div>
                 <label className="mb-1 block text-sm text-muted-foreground">메모</label>
-                <Textarea
-                  value={memo}
-                  onChange={(e) => setMemo(e.target.value)}
-                  placeholder="메모를 입력하세요..."
-                  rows={3}
-                />
-                <Button variant="outline" size="sm" className="mt-2" onClick={handleSaveMemo} disabled={updating}>
-                  메모 저장
-                </Button>
+                <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="메모를 입력하세요..." rows={3} />
+                <Button variant="outline" size="sm" className="mt-2" onClick={handleSaveMemo} disabled={updating}>메모 저장</Button>
               </div>
-
               <div className="flex justify-end gap-2 border-t pt-4">
                 <Button variant="outline" onClick={() => setSelected(null)}>닫기</Button>
                 <Button onClick={handleStatusChange} disabled={updating}>
