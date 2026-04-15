@@ -47,6 +47,7 @@ export default function ConsultationDashboard() {
   const [selected, setSelected] = useState<ConsultationRequest | null>(null);
   const [memo, setMemo] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [vendorNameFilter, setVendorNameFilter] = useState("all");
 
   const fetchData = async () => {
     setLoading(true);
