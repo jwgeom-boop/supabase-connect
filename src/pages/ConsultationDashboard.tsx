@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,27 +52,19 @@ export default function ConsultationDashboard() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("consultation_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("데이터를 불러오는데 실패했습니다.");
-      console.error(error);
-    } else {
+    try {
+      const data = await api.getConsultations();
       setRequests(data ?? []);
+    } catch (error) {
+      toast.error("데이터를 불러오는데 실패했습니다.");
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
-    const channel = supabase
-      .channel("consultation_requests_changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "consultation_requests" }, () => fetchData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Count per vendor type (unaffected by filters)
@@ -129,24 +121,23 @@ export default function ConsultationDashboard() {
     if (!selected) return;
     setUpdating(true);
     const newStatus = selected.status === "대기중" ? "처리완료" : "대기중";
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({ status: newStatus, memo })
-      .eq("id", selected.id);
-    if (error) { toast.error("상태 변경에 실패했습니다."); }
-    else { toast.success("상태가 변경되었습니다."); setSelected(null); fetchData(); }
+    try {
+      await api.updateConsultation(selected.id, { status: newStatus, memo });
+      toast.success("상태가 변경되었습니다.");
+      setSelected(null);
+      fetchData();
+    } catch { toast.error("상태 변경에 실패했습니다."); }
     setUpdating(false);
   };
 
   const handleSaveMemo = async () => {
     if (!selected) return;
     setUpdating(true);
-    const { error } = await supabase
-      .from("consultation_requests")
-      .update({ memo })
-      .eq("id", selected.id);
-    if (error) { toast.error("메모 저장에 실패했습니다."); }
-    else { toast.success("메모가 저장되었습니다."); fetchData(); }
+    try {
+      await api.updateConsultation(selected.id, { memo });
+      toast.success("메모가 저장되었습니다.");
+      fetchData();
+    } catch { toast.error("메모 저장에 실패했습니다."); }
     setUpdating(false);
   };
 
