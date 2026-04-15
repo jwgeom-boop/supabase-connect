@@ -1,8 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
+
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableHeader, TableBody, TableRow,
   TableHead, TableCell,
@@ -43,6 +47,7 @@ export default function ConsultationDashboard() {
   const [selected, setSelected] = useState<ConsultationRequest | null>(null);
   const [memo, setMemo] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [vendorNameFilter, setVendorNameFilter] = useState("all");
 
   const fetchData = async () => {
     setLoading(true);
@@ -77,11 +82,27 @@ export default function ConsultationDashboard() {
     return counts;
   }, [requests]);
 
+  // Dynamic vendor names for the selected tab
+  const vendorNames = useMemo(() => {
+    if (vendorTab === "전체") return [];
+    const names = new Set<string>();
+    requests.forEach((r) => { if (r.vendor_type === vendorTab) names.add(r.vendor_name); });
+    return Array.from(names).sort();
+  }, [requests, vendorTab]);
+
+  // Reset vendor name filter when tab changes
+  useEffect(() => {
+    setVendorNameFilter("all");
+  }, [vendorTab]);
+
   const filtered = useMemo(() => {
     let result = requests;
 
     if (vendorTab !== "전체") {
       result = result.filter((r) => r.vendor_type === vendorTab);
+    }
+    if (vendorNameFilter !== "all") {
+      result = result.filter((r) => r.vendor_name === vendorNameFilter);
     }
     if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
@@ -101,7 +122,7 @@ export default function ConsultationDashboard() {
       result = result.filter((r) => new Date(r.created_at) >= start);
     }
     return result;
-  }, [requests, vendorTab, statusFilter, dateRange]);
+  }, [requests, vendorTab, vendorNameFilter, statusFilter, dateRange]);
 
   const handleStatusChange = async () => {
     if (!selected) return;
@@ -201,6 +222,24 @@ export default function ConsultationDashboard() {
         </div>
         <div className="h-[2px]" style={{ backgroundColor: "#1E3A5F" }} />
       </div>
+
+      {/* Vendor Name Filter */}
+      {vendorTab !== "전체" && vendorNames.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">업체명:</span>
+          <Select value={vendorNameFilter} onValueChange={setVendorNameFilter}>
+            <SelectTrigger className="w-48 h-8 text-sm">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              {vendorNames.map((name) => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4">
