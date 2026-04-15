@@ -52,9 +52,9 @@ export default function BankDetailModal({ selected, onClose, onRefresh, formatDa
 
   // Bank-specific fields
   const [consultationDate, setConsultationDate] = useState<Date | undefined>(
-    selected.consultation_date ? new Date(selected.consultation_date) : undefined
+    selected.consultation_date ? new Date(selected.consultation_date) : new Date()
   );
-  const [aptName, setAptName] = useState(selected.apt_name ?? "");
+  const [aptName, setAptName] = useState(selected.apt_name ?? selected.complex_name ?? "");
   const [unitNumber, setUnitNumber] = useState(selected.unit_number ?? "");
   const [contractor, setContractor] = useState(selected.contractor ?? "");
   const [salePrice, setSalePrice] = useState(selected.sale_price?.toString() ?? "");
